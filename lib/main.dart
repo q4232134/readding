@@ -27,10 +27,26 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
+  void _showAdditionDialog() {
+    showDialog<Null>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return new AlertDialog(
+            title: new Text('标题'),
+            //可滑动
+            content: new SingleChildScrollView(
+                child:  TextField(decoration: InputDecoration(hintText: '复制需要朗读的文本到这里'),)),
+            actions: <Widget>[
+              new FlatButton(
+                child: new Text('添加'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        });
   }
 
   @override
@@ -38,9 +54,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        actions: <Widget>[
-
-        ],
+        actions: <Widget>[],
       ),
       body: Center(
         child: Column(
@@ -57,10 +71,10 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
+        onPressed: _showAdditionDialog,
         tooltip: 'Increment',
         child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
     );
   }
 }
