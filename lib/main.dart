@@ -1,12 +1,39 @@
-import 'package:flutter/material.dart';
+import 'dart:developer';
 
-void main() => runApp(MyApp());
-List<String> list = List();
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
+
+import 'model.dart';
+
+void main() {
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => BeanList(),
+      child: MyApp(),
+    ),
+  );
+}
 
 class MyApp extends StatelessWidget {
+  SharedPreferences prefs;
+  Database db;
+
+  _getPrefs() async {
+    if (prefs == null) prefs = await SharedPreferences.getInstance();
+    return prefs;
+  }
+
+  _init() async {
+    db = await openDatabase('my_db.db');
+  }
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    _init();
     return MaterialApp(
       title: '语音阅读',
       theme: ThemeData(
@@ -26,8 +53,61 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+  var mDialog = Key('dialog');
+
+  @override
+  Widget build(BuildContext context) {
+    BeanList list = Provider.of<BeanList>(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: <Widget>[],
+      ),
+      body: Center(
+          child: ListView.builder(
+              itemCount: list.getList().length,
+              scrollDirection: Axis.vertical,
+              itemBuilder: (context, index) {
+                final item = list.getList()[index];
+                return Consumer<BeanList>(builder: (context, list, child) {
+                  return Dismissible(
+                      key: Key(item.title),
+                      direction: DismissDirection.horizontal,
+                      onDismissed: (DismissDirection direction) {
+                        list.removeAt(index);
+                      },
+                      child: ListTile(
+                          title: Text(list.getList()[index].content),
+                          // item 前置图标
+                          subtitle: Text("subtitle $index"),
+                          // item 后置图标
+                          isThreeLine: false,
+                          // item 是否三行显示
+                          dense: true,
+                          // item 直观感受是整体大小
+                          contentPadding: EdgeInsets.all(10.0),
+                          // item 内容内边距
+                          enabled: true,
+                          onTap: () {
+                            print('点击:$index');
+                          },
+                          // item onTap 点击事件
+                          onLongPress: () {
+                            print('长按:$index');
+                          },
+                          // item onLongPress 长按事件
+                          selected: false));
+                });
+
+                // item 是否选中状态
+              })),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAdditionDialog,
+        tooltip: 'Increment',
+        child: Icon(Icons.add),
+      ),
+    );
+  }
 
   void _showAdditionDialog() {
     String saved;
@@ -36,6 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
         barrierDismissible: true,
         builder: (BuildContext buildContext) {
           return new AlertDialog(
+            key: mDialog,
             title: new Text('添加条目'),
             //可滑动
             content: new SingleChildScrollView(
@@ -53,46 +134,16 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: new Text('添加'),
                 onPressed: () {
                   if (saved == null || saved.length == 0) {
-                    scaffoldKey.currentState
-                        .showSnackBar(SnackBar(content: Text("输入内容不能为空")));
+                    Fluttertoast.showToast(msg: "输入内容不能为空");
                     return;
                   }
-                  list.add(saved);
-                  print('$list');
+                  list.add(Bean(saved));
+                  list.getList().forEach((it) => print(it.content));
+                  Navigator.of(context).pop();
                 },
               ),
             ],
           );
         });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      key: scaffoldKey,
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: <Widget>[],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAdditionDialog,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ),
-    );
   }
 }
