@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 
 import 'model.dart';
 
@@ -19,7 +18,6 @@ void main() {
 
 class MyApp extends StatelessWidget {
   SharedPreferences prefs;
-  Database db;
 
   _getPrefs() async {
     if (prefs == null) prefs = await SharedPreferences.getInstance();
@@ -27,7 +25,9 @@ class MyApp extends StatelessWidget {
   }
 
   _init() async {
-    db = await openDatabase('my_db.db');
+    final PgAdapter _adapter =
+        new PgAdapter('example', username: 'postgres', password: 'dart_jaguar');
+    await _adapter.connect();
   }
 
   // This widget is the root of your application.
@@ -115,6 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
         context: context,
         barrierDismissible: true,
         builder: (BuildContext buildContext) {
+          var list = Provider.of<BeanList>(context);
           return new AlertDialog(
             key: mDialog,
             title: new Text('添加条目'),

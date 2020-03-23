@@ -1,9 +1,11 @@
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
+import 'package:jaguar_orm/jaguar_orm.dart';
 import 'package:readding/main.dart';
 
 class Bean {
+  @PrimaryKey(auto: true)
   int id;
   var title = "";
   var content = "";
@@ -22,6 +24,11 @@ class Bean {
       .substring(0, min(msg.length - 1, 100))
       .toString()
       .replaceAll("\n", " ");
+}
+
+@GenBean()
+class UserDao extends Bean<Bean> with _UserBean {
+  UserDao(Adapter adapter) : super(adapter);
 }
 
 class BeanList with ChangeNotifier {
