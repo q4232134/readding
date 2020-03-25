@@ -1,20 +1,22 @@
 import 'dart:math';
 
+import 'package:floor/floor.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:jaguar_orm/jaguar_orm.dart';
-import 'package:readding/main.dart';
 
-class Bean {
-  @PrimaryKey(auto: true)
+@entity
+class History {
+  @PrimaryKey(autoGenerate: true)
   int id;
-  var title = "";
-  var content = "";
-  var ord = 0;
-  var isFinished = false;
-  var createTime = DateTime.now();
-  var history = 0;
+  String title = "";
+  String content = "";
+  int ord = 0;
+  bool isFinished = false;
+  int createTime = 0;
+  int history = 0;
 
-  Bean(String msg) {
+  History(this.id, this.title, this.content, this.ord, this.isFinished, this.createTime, this.history);
+
+  History.init(String msg) {
     title = getHead(msg);
     content = msg;
     ord = -1;
@@ -24,33 +26,49 @@ class Bean {
       .substring(0, min(msg.length - 1, 100))
       .toString()
       .replaceAll("\n", " ");
+
+  @override
+  String toString() {
+    return content;
+  }
 }
 
-@GenBean()
-class UserDao extends Bean<Bean> with _UserBean {
-  UserDao(Adapter adapter) : super(adapter);
+@dao
+abstract class HistoryDao {
+  @Query('SELECT * FROM History')
+  Future<List<History>> getAll();
+
+  @Query('SELECT * FROM History')
+  Stream<List<History>> getAllAsStream();
+
+  @insert
+  Future<void> add(History person);
 }
 
 class BeanList with ChangeNotifier {
-  List<Bean> _list = List();
+  List<History> _list = List();
 
-  List<Bean> getList() {
+  List<History> getList() {
     return _list;
   }
 
-  add(Bean t) {
+  add(History t) {
     _list.add(t);
     notifyListeners();
   }
 
-  remove(Bean t) {
+  addAll(List<History> t) {
+    _list.addAll(t);
+    notifyListeners();
+  }
+
+  remove(History t) {
     _list.remove(t);
     notifyListeners();
   }
 
-  removeAt(int index){
+  removeAt(int index) {
     _list.removeAt(index);
     notifyListeners();
-
   }
 }

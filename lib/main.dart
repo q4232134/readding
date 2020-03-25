@@ -5,7 +5,10 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'database.dart';
 import 'model.dart';
+
+BeanList list;
 
 void main() {
   runApp(
@@ -16,6 +19,12 @@ void main() {
   );
 }
 
+Future<HistoryDao> _getDao() async {
+  final database =
+      await $FloorAppDatabase.databaseBuilder('database.db').build();
+  return database.historyDao;
+}
+
 class MyApp extends StatelessWidget {
   SharedPreferences prefs;
 
@@ -24,16 +33,9 @@ class MyApp extends StatelessWidget {
     return prefs;
   }
 
-  _init() async {
-    final PgAdapter _adapter =
-        new PgAdapter('example', username: 'postgres', password: 'dart_jaguar');
-    await _adapter.connect();
-  }
-
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    _init();
     return MaterialApp(
       title: '语音阅读',
       theme: ThemeData(
@@ -55,9 +57,19 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
 
+  void _add(BeanList list) async {
+    var temp = await (await _getDao()).getAll();
+    list.addAll(temp);
+  }
+
+  void _showList() async {
+    (await (await _getDao()).getAll()).forEach((it) => print(it));
+  }
+
   @override
   Widget build(BuildContext context) {
     BeanList list = Provider.of<BeanList>(context);
+    _add(list);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -102,11 +114,15 @@ class _MyHomePageState extends State<MyHomePage> {
                 // item 是否选中状态
               })),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAdditionDialog,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ),
+          onPressed: _showAdditionDialog,
+          tooltip: 'Increment',
+          child:
+              GestureDetector(onLongPress: _showList, child: Icon(Icons.add))),
     );
+  }
+
+  void _insert(History temp) async {
+    await (await _getDao()).add(temp);
   }
 
   void _showAdditionDialog() {
@@ -138,7 +154,9 @@ class _MyHomePageState extends State<MyHomePage> {
                     Fluttertoast.showToast(msg: "输入内容不能为空");
                     return;
                   }
-                  list.add(Bean(saved));
+                  var temp = History.init(saved);
+                  _insert(temp);
+                  list.add(temp);
                   list.getList().forEach((it) => print(it.content));
                   Navigator.of(context).pop();
                 },
