@@ -14,7 +14,8 @@ class History {
   int createTime = 0;
   int history = 0;
 
-  History(this.id, this.title, this.content, this.ord, this.isFinished, this.createTime, this.history);
+  History(this.id, this.title, this.content, this.ord, this.isFinished,
+      this.createTime, this.history);
 
   History.init(String msg) {
     title = getHead(msg);
@@ -43,6 +44,9 @@ abstract class HistoryDao {
 
   @insert
   Future<void> add(History person);
+
+  @delete
+  Future<int> remove(History item);
 }
 
 class BeanList with ChangeNotifier {

@@ -11,9 +11,18 @@ import 'model.dart';
 BeanList list;
 
 void main() {
+  void _add(BeanList list) async {
+    var temp = await (await _getDao()).getAll();
+    list.addAll(temp);
+  }
+
   runApp(
     ChangeNotifierProvider(
-      create: (context) => BeanList(),
+      create: (context) {
+        list = BeanList();
+        _add(list);
+        return list;
+      },
       child: MyApp(),
     ),
   );
@@ -57,11 +66,6 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
 
-  void _add(BeanList list) async {
-    var temp = await (await _getDao()).getAll();
-    list.addAll(temp);
-  }
-
   void _showList() async {
     (await (await _getDao()).getAll()).forEach((it) => print(it));
   }
@@ -69,7 +73,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     BeanList list = Provider.of<BeanList>(context);
-    _add(list);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -85,7 +88,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   return Dismissible(
                       key: Key(item.title),
                       direction: DismissDirection.horizontal,
-                      onDismissed: (DismissDirection direction) {
+                      onDismissed: (DismissDirection direction) async {
+                        await (await _getDao()).remove(list.getList()[index]);
                         list.removeAt(index);
                       },
                       child: ListTile(
