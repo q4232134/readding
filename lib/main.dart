@@ -79,7 +79,16 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        actions: <Widget>[],
+        actions: <Widget>[
+          FlatButton(
+            child: Text('播放',
+                style: TextStyle(
+                  fontSize: 16.0, // 文字大小
+                  color: Colors.white, // 文字颜色
+                )),
+            onPressed: () {},
+          )
+        ],
       ),
       body: Center(
           child: ListView.builder(
@@ -154,7 +163,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   border: InputBorder.none, hintText: '复制需要朗读的文本到这里'),
             )),
             actions: <Widget>[
-              new FlatButton(
+              FlatButton(
                 child: new Text(item == null ? '添加' : '修改'),
                 onPressed: () async {
                   if (saved == null || saved.length == 0) {
