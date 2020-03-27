@@ -45,6 +45,9 @@ abstract class HistoryDao {
   @insert
   Future<void> add(History person);
 
+  @update
+  Future<void> updateItem(History person);
+
   @delete
   Future<int> remove(History item);
 }

@@ -110,6 +110,20 @@ class _$HistoryDao extends HistoryDao {
                   'history': item.history
                 },
             changeListener),
+        _historyUpdateAdapter = UpdateAdapter(
+            database,
+            'History',
+            ['id'],
+            (History item) => <String, dynamic>{
+                  'id': item.id,
+                  'title': item.title,
+                  'content': item.content,
+                  'ord': item.ord,
+                  'isFinished': item.isFinished ? 1 : 0,
+                  'createTime': item.createTime,
+                  'history': item.history
+                },
+            changeListener),
         _historyDeletionAdapter = DeletionAdapter(
             database,
             'History',
@@ -142,6 +156,8 @@ class _$HistoryDao extends HistoryDao {
 
   final InsertionAdapter<History> _historyInsertionAdapter;
 
+  final UpdateAdapter<History> _historyUpdateAdapter;
+
   final DeletionAdapter<History> _historyDeletionAdapter;
 
   @override
@@ -160,6 +176,11 @@ class _$HistoryDao extends HistoryDao {
   Future<void> add(History person) async {
     await _historyInsertionAdapter.insert(
         person, sqflite.ConflictAlgorithm.abort);
+  }
+
+  @override
+  Future<void> updateItem(History person) async {
+    await _historyUpdateAdapter.update(person, sqflite.ConflictAlgorithm.abort);
   }
 
   @override

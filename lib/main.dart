@@ -1,8 +1,10 @@
 import 'dart:developer';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
+import 'package:readding/ttsservice.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
@@ -10,7 +12,8 @@ import 'model.dart';
 
 BeanList list;
 
-void main() {
+void main() async {
+  AudioServiceBackground.run(() => ttsservice());
   void _add(BeanList list) async {
     var temp = await (await _getDao()).getAll();
     list.addAll(temp);
@@ -105,7 +108,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           // item 内容内边距
                           enabled: true,
                           onTap: () {
-                            print('点击:$index');
+                            _showAdditionDialog(item: list.getList()[index]);
                           },
                           // item onTap 点击事件
                           onLongPress: () {
@@ -125,11 +128,8 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void _insert(History temp) async {
-    await (await _getDao()).add(temp);
-  }
-
-  void _showAdditionDialog() {
+  // ignore: avoid_init_to_null
+  void _showAdditionDialog({History item = null, String content = ''}) {
     String saved;
     showDialog<Null>(
         context: context,
@@ -142,6 +142,9 @@ class _MyHomePageState extends State<MyHomePage> {
             //可滑动
             content: new SingleChildScrollView(
                 child: TextField(
+              controller: TextEditingController.fromValue(TextEditingValue(
+                text: item == null ? content : item.content,
+              )),
               style: TextStyle(fontSize: 16),
               onChanged: (it) => {saved = it},
               textInputAction: TextInputAction.done,
@@ -152,16 +155,23 @@ class _MyHomePageState extends State<MyHomePage> {
             )),
             actions: <Widget>[
               new FlatButton(
-                child: new Text('添加'),
-                onPressed: () {
+                child: new Text(item == null ? '添加' : '修改'),
+                onPressed: () async {
                   if (saved == null || saved.length == 0) {
                     Fluttertoast.showToast(msg: "输入内容不能为空");
                     return;
                   }
-                  var temp = History.init(saved);
-                  _insert(temp);
-                  list.add(temp);
-                  list.getList().forEach((it) => print(it.content));
+                  if (item == null) {
+                    var temp = History.init(saved);
+                    list.add(temp);
+                    await (await _getDao()).add(temp);
+                  } else {
+                    item.content = saved;
+                    item.title = item.getHead(saved);
+                    await (await _getDao()).updateItem(item);
+                    // ignore: invalid_use_of_protected_member
+                    list.notifyListeners();
+                  }
                   Navigator.of(context).pop();
                 },
               ),
