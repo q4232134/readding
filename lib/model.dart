@@ -11,7 +11,7 @@ class History {
   String content = "";
   int ord = 0;
   bool isFinished = false;
-  int createTime = 0;
+  String createTime;
   int history = 0;
 
   History(this.id, this.title, this.content, this.ord, this.isFinished,
@@ -20,7 +20,12 @@ class History {
   History.init(String msg) {
     title = getHead(msg);
     content = msg;
+    createTime = DateTime.now().toString();
     ord = -1;
+  }
+
+  getDate() {
+    return DateTime.tryParse(createTime);
   }
 
   getHead(String msg) => msg

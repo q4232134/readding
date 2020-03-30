@@ -81,7 +81,7 @@ class _$AppDatabase extends AppDatabase {
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `History` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT, `content` TEXT, `ord` INTEGER, `isFinished` INTEGER, `createTime` INTEGER, `history` INTEGER)');
+            'CREATE TABLE IF NOT EXISTS `History` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT, `content` TEXT, `ord` INTEGER, `isFinished` INTEGER, `createTime` TEXT, `history` INTEGER)');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -151,7 +151,7 @@ class _$HistoryDao extends HistoryDao {
       row['content'] as String,
       row['ord'] as int,
       (row['isFinished'] as int) != 0,
-      row['createTime'] as int,
+      row['createTime'] as String,
       row['history'] as int);
 
   final InsertionAdapter<History> _historyInsertionAdapter;

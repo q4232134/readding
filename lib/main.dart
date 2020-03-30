@@ -1,7 +1,11 @@
 import 'dart:developer';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:readding/ttsservice.dart';
@@ -11,12 +15,15 @@ import 'database.dart';
 import 'model.dart';
 
 BeanList list;
+FlutterTts flutterTts;
+var isPlaying = false;
 
 void main() async {
   AudioServiceBackground.run(() => ttsservice());
   void _add(BeanList list) async {
     var temp = await (await _getDao()).getAll();
     list.addAll(temp);
+    flutterTts = FlutterTts();
   }
 
   runApp(
@@ -75,18 +82,34 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    Future _startTTS() async {
+      var result = await flutterTts.speak("Hello World");
+      if (result == 1) setState(() => {isPlaying = true});
+    }
+
+    Future _stopTTS() async {
+      var result = await flutterTts.stop();
+      if (result == 1) setState(() => {isPlaying = false});
+    }
+
     BeanList list = Provider.of<BeanList>(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
         actions: <Widget>[
           FlatButton(
-            child: Text('播放',
+            child: Text(isPlaying ? '暂停' : '播放',
                 style: TextStyle(
                   fontSize: 16.0, // 文字大小
                   color: Colors.white, // 文字颜色
                 )),
-            onPressed: () {},
+            onPressed: () {
+              if (isPlaying) {
+                _stopTTS();
+              } else {
+                _startTTS();
+              }
+            },
           )
         ],
       ),
@@ -104,39 +127,52 @@ class _MyHomePageState extends State<MyHomePage> {
                         await (await _getDao()).remove(list.getList()[index]);
                         list.removeAt(index);
                       },
-                      child: ListTile(
-                          title: Text(list.getList()[index].content),
-                          // item 前置图标
-                          subtitle: Text("subtitle $index"),
-                          // item 后置图标
-                          isThreeLine: false,
-                          // item 是否三行显示
-                          dense: true,
-                          // item 直观感受是整体大小
-                          contentPadding: EdgeInsets.all(10.0),
-                          // item 内容内边距
-                          enabled: true,
-                          onTap: () {
-                            _showAdditionDialog(item: list.getList()[index]);
-                          },
-                          // item onTap 点击事件
-                          onLongPress: () {
-                            print('长按:$index');
-                          },
-                          // item onLongPress 长按事件
-                          selected: false));
+                      child: Padding(
+                          padding: EdgeInsets.only(left: 8, right: 8, top: 2),
+                          child: Card(
+                              child: ListTile(
+                                  title: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Text(
+                                          formatDate(
+                                              list.getList()[index].getDate(),
+                                              [yyyy, "-", mm, "-", dd]),
+                                          textAlign: TextAlign.left,
+                                          maxLines: 1,
+                                          style: TextStyle(fontSize: 12))),
+                                  subtitle: Text(list.getList()[index].content,
+                                      maxLines: 3),
+                                  isThreeLine: false,
+                                  dense: true,
+                                  enabled: true,
+                                  onTap: () {
+                                    _showAdditionDialog(
+                                        item: list.getList()[index]);
+                                  },
+                                  onLongPress: () {
+                                    print('长按:$index');
+                                  },
+                                  selected: false))));
                 });
-
                 // item 是否选中状态
               })),
       floatingActionButton: FloatingActionButton(
           onPressed: _showAdditionDialog,
           tooltip: 'Increment',
-          child:
-              GestureDetector(onLongPress: _showList, child: Icon(Icons.add))),
+          child: GestureDetector(
+              onLongPress: () async {
+                var data = await Clipboard.getData(Clipboard.kTextPlain);
+                if (data.text == null) return;
+                var temp = History.init(data.text);
+                list.add(temp);
+                await (await _getDao()).add(temp);
+                Fluttertoast.showToast(msg: "添加条目成功");
+              },
+              child: Icon(Icons.add))),
     );
   }
 
+  /// 弹出添加对话框
   // ignore: avoid_init_to_null
   void _showAdditionDialog({History item = null, String content = ''}) {
     String saved;
@@ -149,19 +185,20 @@ class _MyHomePageState extends State<MyHomePage> {
             key: mDialog,
             title: new Text('添加条目'),
             //可滑动
-            content: new SingleChildScrollView(
-                child: TextField(
+            content: TextField(
               controller: TextEditingController.fromValue(TextEditingValue(
                 text: item == null ? content : item.content,
               )),
               style: TextStyle(fontSize: 16),
               onChanged: (it) => {saved = it},
-              textInputAction: TextInputAction.done,
+              maxLengthEnforced: false,
+              minLines: 5,
+              maxLines: 22,
               maxLength: 99999,
               autocorrect: true,
               decoration: InputDecoration(
                   border: InputBorder.none, hintText: '复制需要朗读的文本到这里'),
-            )),
+            ),
             actions: <Widget>[
               FlatButton(
                 child: new Text(item == null ? '添加' : '修改'),
@@ -174,12 +211,14 @@ class _MyHomePageState extends State<MyHomePage> {
                     var temp = History.init(saved);
                     list.add(temp);
                     await (await _getDao()).add(temp);
+                    Fluttertoast.showToast(msg: "添加条目成功");
                   } else {
                     item.content = saved;
                     item.title = item.getHead(saved);
                     await (await _getDao()).updateItem(item);
                     // ignore: invalid_use_of_protected_member
                     list.notifyListeners();
+                    Fluttertoast.showToast(msg: "修改条目成功");
                   }
                   Navigator.of(context).pop();
                 },
