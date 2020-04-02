@@ -8,43 +8,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
-import 'package:readding/ttsservice.dart';
+import 'package:readding/router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/src/exception.dart';
 
 import 'database.dart';
 import 'model.dart';
 
-BeanList list;
 FlutterTts flutterTts;
 var isPlaying = false;
 
-void main() async {
-  AudioServiceBackground.run(() => ttsservice());
-  void _add(BeanList list) async {
-    var temp = await (await _getDao()).getAll();
-    list.addAll(temp);
-    flutterTts = FlutterTts();
-  }
-
-  runApp(
-    ChangeNotifierProvider(
-      create: (context) {
-        list = BeanList();
-        _add(list);
-        return list;
-      },
-      child: MyApp(),
-    ),
-  );
-}
-
-Future<HistoryDao> _getDao() async {
-  final database =
-      await $FloorAppDatabase.databaseBuilder('database.db').build();
-  return database.historyDao;
-}
-
-class MyApp extends StatelessWidget {
+class mainpage extends StatelessWidget {
   SharedPreferences prefs;
 
   _getPrefs() async {
@@ -55,12 +29,21 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '语音阅读',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+    void _add(BeanList list) async {
+      var temp = await (dao).getAll();
+      list.addAll(temp);
+      flutterTts = FlutterTts();
+    }
+
+    return Scaffold(
+      body: ChangeNotifierProvider(
+        create: (context) {
+          list = BeanList();
+          _add(list);
+          return list;
+        },
+        child: MyHomePage(title: '语音阅读'),
       ),
-      home: MyHomePage(title: '语音阅读'),
     );
   }
 }
@@ -76,10 +59,6 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
 
-  void _showList() async {
-    (await (await _getDao()).getAll()).forEach((it) => print(it));
-  }
-
   @override
   Widget build(BuildContext context) {
     Future _startTTS() async {
@@ -93,24 +72,38 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     BeanList list = Provider.of<BeanList>(context);
+    var style = TextStyle(
+      fontSize: 12.0, // 文字大小
+      color: Colors.white, // 文字颜色
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
         actions: <Widget>[
-          FlatButton(
-            child: Text(isPlaying ? '暂停' : '播放',
-                style: TextStyle(
-                  fontSize: 16.0, // 文字大小
-                  color: Colors.white, // 文字颜色
-                )),
-            onPressed: () {
-              if (isPlaying) {
-                _stopTTS();
-              } else {
-                _startTTS();
-              }
-            },
-          )
+          Container(
+              width: 60.0,
+              child: FlatButton(
+                child: Text(isPlaying ? '暂停' : '播放', style: style),
+                onPressed: () {
+                  if (isPlaying) {
+                    _stopTTS();
+                  } else {
+                    _startTTS();
+                  }
+                },
+              )),
+          Container(
+              width: 80.0,
+              child: FlatButton(
+                child: Text(
+                  '历史记录',
+                  style: style,
+                ),
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/history');
+                },
+              ))
         ],
       ),
       body: Center(
@@ -124,8 +117,15 @@ class _MyHomePageState extends State<MyHomePage> {
                       key: Key(item.title),
                       direction: DismissDirection.horizontal,
                       onDismissed: (DismissDirection direction) async {
-                        await (await _getDao()).remove(list.getList()[index]);
-                        list.removeAt(index);
+                        if (direction == DismissDirection.startToEnd) {
+                          await dao.remove(list.getList()[index]);
+                          list.removeAt(index);
+                        } else {
+                          var temp = list.getList()[index];
+                          temp.isFinished = true;
+                          await dao.updateItem(temp);
+                          list.removeAt(index);
+                        }
                       },
                       child: Padding(
                           padding: EdgeInsets.only(left: 8, right: 8, top: 2),
@@ -149,27 +149,33 @@ class _MyHomePageState extends State<MyHomePage> {
                                     _showAdditionDialog(
                                         item: list.getList()[index]);
                                   },
-                                  onLongPress: () {
-                                    print('长按:$index');
-                                  },
                                   selected: false))));
                 });
                 // item 是否选中状态
               })),
       floatingActionButton: FloatingActionButton(
           onPressed: _showAdditionDialog,
-          tooltip: 'Increment',
           child: GestureDetector(
               onLongPress: () async {
                 var data = await Clipboard.getData(Clipboard.kTextPlain);
                 if (data.text == null) return;
                 var temp = History.init(data.text);
+                if (!await _addItem(temp)) return;
                 list.add(temp);
-                await (await _getDao()).add(temp);
                 Fluttertoast.showToast(msg: "添加条目成功");
               },
               child: Icon(Icons.add))),
     );
+  }
+
+  _addItem(var item) async {
+    try {
+      dao.add(item);
+    } on SqfliteDatabaseException {
+      Fluttertoast.showToast(msg: "条目已存在");
+      return false;
+    }
+    return true;
   }
 
   /// 弹出添加对话框
@@ -209,13 +215,13 @@ class _MyHomePageState extends State<MyHomePage> {
                   }
                   if (item == null) {
                     var temp = History.init(saved);
+                    if (!await _addItem(temp)) return;
                     list.add(temp);
-                    await (await _getDao()).add(temp);
                     Fluttertoast.showToast(msg: "添加条目成功");
                   } else {
                     item.content = saved;
                     item.title = item.getHead(saved);
-                    await (await _getDao()).updateItem(item);
+                    dao.updateItem(item);
                     // ignore: invalid_use_of_protected_member
                     list.notifyListeners();
                     Fluttertoast.showToast(msg: "修改条目成功");

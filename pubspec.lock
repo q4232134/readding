@@ -189,21 +189,21 @@ packages:
       name: floor
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.11.0"
+    version: "0.12.0"
   floor_annotation:
     dependency: transitive
     description:
       name: floor_annotation
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.0"
   floor_generator:
     dependency: "direct dev"
     description:
       name: floor_generator
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.11.0"
+    version: "0.12.0"
   flutter:
     dependency: "direct main"
     description: flutter

@@ -74,14 +74,16 @@ class _$AppDatabase extends AppDatabase {
         await callback?.onOpen?.call(database);
       },
       onUpgrade: (database, startVersion, endVersion) async {
-        MigrationAdapter.runMigrations(
+        await MigrationAdapter.runMigrations(
             database, startVersion, endVersion, migrations);
 
         await callback?.onUpgrade?.call(database, startVersion, endVersion);
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `History` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT, `content` TEXT, `ord` INTEGER, `isFinished` INTEGER, `createTime` TEXT, `history` INTEGER)');
+            'CREATE TABLE IF NOT EXISTS `History` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `title` TEXT NOT NULL, `content` TEXT, `ord` INTEGER, `isFinished` INTEGER, `createTime` TEXT, `history` INTEGER)');
+        await database.execute(
+            'CREATE UNIQUE INDEX `index_History_title` ON `History` (`title`)');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -96,7 +98,7 @@ class _$AppDatabase extends AppDatabase {
 
 class _$HistoryDao extends HistoryDao {
   _$HistoryDao(this.database, this.changeListener)
-      : _queryAdapter = QueryAdapter(database, changeListener),
+      : _queryAdapter = QueryAdapter(database),
         _historyInsertionAdapter = InsertionAdapter(
             database,
             'History',
@@ -108,8 +110,7 @@ class _$HistoryDao extends HistoryDao {
                   'isFinished': item.isFinished ? 1 : 0,
                   'createTime': item.createTime,
                   'history': item.history
-                },
-            changeListener),
+                }),
         _historyUpdateAdapter = UpdateAdapter(
             database,
             'History',
@@ -122,8 +123,7 @@ class _$HistoryDao extends HistoryDao {
                   'isFinished': item.isFinished ? 1 : 0,
                   'createTime': item.createTime,
                   'history': item.history
-                },
-            changeListener),
+                }),
         _historyDeletionAdapter = DeletionAdapter(
             database,
             'History',
@@ -136,8 +136,7 @@ class _$HistoryDao extends HistoryDao {
                   'isFinished': item.isFinished ? 1 : 0,
                   'createTime': item.createTime,
                   'history': item.history
-                },
-            changeListener);
+                });
 
   final sqflite.DatabaseExecutor database;
 
@@ -162,14 +161,16 @@ class _$HistoryDao extends HistoryDao {
 
   @override
   Future<List<History>> getAll() async {
-    return _queryAdapter.queryList('SELECT * FROM History',
+    return _queryAdapter.queryList(
+        'SELECT * FROM History where isFinished = 0 order by ord',
         mapper: _historyMapper);
   }
 
   @override
-  Stream<List<History>> getAllAsStream() {
-    return _queryAdapter.queryListStream('SELECT * FROM History',
-        tableName: 'History', mapper: _historyMapper);
+  Future<List<History>> getHistory() async {
+    return _queryAdapter.queryList(
+        'SELECT * FROM History where isFinished = 1 order by createTime desc',
+        mapper: _historyMapper);
   }
 
   @override

@@ -3,10 +3,13 @@ import 'dart:math';
 import 'package:floor/floor.dart';
 import 'package:flutter/cupertino.dart';
 
-@entity
+@Entity(indices: [
+  Index(unique: true, value: ['title'])
+])
 class History {
   @PrimaryKey(autoGenerate: true)
   int id;
+  @ColumnInfo(nullable: false)
   String title = "";
   String content = "";
   int ord = 0;
@@ -41,11 +44,11 @@ class History {
 
 @dao
 abstract class HistoryDao {
-  @Query('SELECT * FROM History')
+  @Query('SELECT * FROM History where isFinished = 0 order by ord')
   Future<List<History>> getAll();
 
-  @Query('SELECT * FROM History')
-  Stream<List<History>> getAllAsStream();
+  @Query('SELECT * FROM History where isFinished = 1 order by createTime desc')
+  Future<List<History>> getHistory();
 
   @insert
   Future<void> add(History person);
