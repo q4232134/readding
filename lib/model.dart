@@ -82,6 +82,12 @@ class BeanList with ChangeNotifier {
     notifyListeners();
   }
 
+
+  removeAll() {
+    _list.clear();
+    notifyListeners();
+  }
+
   removeAt(int index) {
     _list.removeAt(index);
     notifyListeners();

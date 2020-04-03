@@ -1,8 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_tts/flutter_tts.dart';
-import 'package:provider/provider.dart';
 import 'package:readding/historypage.dart';
 import 'package:readding/ttsservice.dart';
 
@@ -11,7 +9,6 @@ import 'mainpage.dart';
 import 'model.dart';
 
 HistoryDao dao;
-BeanList list;
 
 void main() async {
   AudioServiceBackground.run(() => ttsservice());

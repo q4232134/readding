@@ -18,6 +18,8 @@ import 'model.dart';
 FlutterTts flutterTts;
 var isPlaying = false;
 
+BeanList list;
+
 class mainpage extends StatelessWidget {
   SharedPreferences prefs;
 
@@ -58,6 +60,13 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
+
+  @override
+  void deactivate() async {
+    list.removeAll();
+    var temp = await (dao).getAll();
+    list.addAll(temp);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,18 +162,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 });
                 // item 是否选中状态
               })),
-      floatingActionButton: FloatingActionButton(
-          onPressed: _showAdditionDialog,
-          child: GestureDetector(
-              onLongPress: () async {
-                var data = await Clipboard.getData(Clipboard.kTextPlain);
-                if (data.text == null) return;
-                var temp = History.init(data.text);
-                if (!await _addItem(temp)) return;
-                list.add(temp);
-                Fluttertoast.showToast(msg: "添加条目成功");
-              },
-              child: Icon(Icons.add))),
+      floatingActionButton: GestureDetector(
+          onLongPress: () async {
+            var data = await Clipboard.getData(Clipboard.kTextPlain);
+            if (data.text == null) return;
+            var temp = History.init(data.text);
+            if (!await _addItem(temp)) return;
+            list.add(temp);
+            Fluttertoast.showToast(msg: "添加条目成功");
+          },
+          child: FloatingActionButton(
+              onPressed: _showAdditionDialog, child: Icon(Icons.add))),
     );
   }
 
