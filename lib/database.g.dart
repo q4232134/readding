@@ -174,6 +174,13 @@ class _$HistoryDao extends HistoryDao {
   }
 
   @override
+  Future<History> getFirst() async {
+    return _queryAdapter.query(
+        'SELECT * FROM History where isFinished = 0 order by ord limit 1',
+        mapper: _historyMapper);
+  }
+
+  @override
   Future<void> add(History person) async {
     await _historyInsertionAdapter.insert(
         person, sqflite.ConflictAlgorithm.abort);

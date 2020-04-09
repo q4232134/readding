@@ -7,6 +7,7 @@ import 'package:readding/router.dart';
 import 'model.dart';
 
 BeanList list;
+
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}) : super(key: key);
   final String title;
@@ -35,6 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       list.removeAt(index);
                     } else {
                       var temp = list.getList()[index];
+                      temp.ord = -1;
                       temp.isFinished = false;
                       await dao.updateItem(temp);
                       list.removeAt(index);

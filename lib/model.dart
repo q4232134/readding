@@ -50,6 +50,9 @@ abstract class HistoryDao {
   @Query('SELECT * FROM History where isFinished = 1 order by createTime desc')
   Future<List<History>> getHistory();
 
+  @Query('SELECT * FROM History where isFinished = 0 order by ord limit 1')
+  Future<History> getFirst();
+
   @insert
   Future<void> add(History person);
 

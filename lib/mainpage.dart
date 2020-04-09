@@ -1,22 +1,28 @@
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:audioplayer/audioplayer.dart';
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_list_drag_and_drop/drag_and_drop_list.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:readding/router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/src/exception.dart';
+import 'package:path/path.dart' as pp;
 
 import 'database.dart';
 import 'model.dart';
 
 FlutterTts flutterTts;
 var isPlaying = false;
+AudioPlayer audioPlayer = AudioPlayer();
 
 BeanList list;
 
@@ -58,6 +64,20 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
+/// 根据id获取文件
+_getFileById(var id) async {
+  var name = '$id.wav';
+  final dir = await getExternalStorageDirectory();
+  return File(dir.path + '/' + name);
+}
+
+///根据id删除文件
+_deleteFile({int id, File file}) async {
+  File temp = file == null ? await _getFileById(id) : file;
+  await temp.delete();
+  print('${pp.basename(file.path)}已删除');
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
 
@@ -70,38 +90,65 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    Future _startTTS() async {
-      var result = await flutterTts.speak("Hello World");
-      if (result == 1) setState(() => {isPlaying = true});
-    }
-
-    Future _stopTTS() async {
-      var result = await flutterTts.stop();
-      if (result == 1) setState(() => {isPlaying = false});
-    }
-
     BeanList list = Provider.of<BeanList>(context);
     var style = TextStyle(
       fontSize: 12.0, // 文字大小
       color: Colors.white, // 文字颜色
     );
 
+    _play(History model) async {
+      var file = await _getFileById(model.id);
+      await audioPlayer.play(file.path, isLocal: true);
+      audioPlayer.onPlayerStateChanged.listen((s) {
+        var flag;
+        switch (s) {
+          case AudioPlayerState.PLAYING:
+            flag = true;
+            break;
+          case AudioPlayerState.COMPLETED:
+            _deleteFile(id: model.id);
+            list.remove(model);
+            flag = false;
+            break;
+          case AudioPlayerState.PAUSED:
+          case AudioPlayerState.STOPPED:
+            flag = false;
+        }
+        setState(() => {isPlaying = flag});
+      }, onError: (msg) {
+        setState(() {
+          isPlaying = false;
+          Fluttertoast.showToast(msg: msg);
+        });
+      });
+    }
+
+    Future _createTTS() async {
+      var temp = await (await getDao()).getFirst();
+      final file = await _getFileById(temp.id);
+      print(file.path);
+      var flag = await file.exists();
+      print(flag);
+      if (!flag) {
+        flutterTts.setLanguage('zh-CN');
+        int result = await flutterTts.synthesizeToFile(
+            temp.content, pp.basename(file.path));
+        if (!(result == 1)) {
+          Fluttertoast.showToast(msg: "生成语音文件失败！");
+          return;
+        }
+      }
+      _play(temp);
+    }
+
+    Future _stopTTS() async {
+      audioPlayer.pause();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
         actions: <Widget>[
-          Container(
-              width: 60.0,
-              child: FlatButton(
-                child: Text(isPlaying ? '暂停' : '播放', style: style),
-                onPressed: () {
-                  if (isPlaying) {
-                    _stopTTS();
-                  } else {
-                    _startTTS();
-                  }
-                },
-              )),
           Container(
               width: 80.0,
               child: FlatButton(
@@ -111,6 +158,18 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 onPressed: () {
                   Navigator.of(context).pushNamed('/history');
+                },
+              )),
+          Container(
+              width: 60.0,
+              child: FlatButton(
+                child: Text(isPlaying ? '暂停' : '播放', style: style),
+                onPressed: () {
+                  if (isPlaying) {
+                    _stopTTS();
+                  } else {
+                    _createTTS();
+                  }
                 },
               ))
         ],
@@ -127,11 +186,16 @@ class _MyHomePageState extends State<MyHomePage> {
                       direction: DismissDirection.horizontal,
                       onDismissed: (DismissDirection direction) async {
                         if (direction == DismissDirection.startToEnd) {
-                          await dao.remove(list.getList()[index]);
+                          var temp = list.getList()[index];
+                          audioPlayer.stop();
+                          _deleteFile(id: temp.id);
+                          await dao.remove(temp);
                           list.removeAt(index);
                         } else {
                           var temp = list.getList()[index];
                           temp.isFinished = true;
+                          audioPlayer.stop();
+                          _deleteFile(id: temp.id);
                           await dao.updateItem(temp);
                           list.removeAt(index);
                         }
