@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:math';
 
 import 'package:floor/floor.dart';
@@ -57,10 +58,27 @@ abstract class HistoryDao {
   Future<void> add(History person);
 
   @update
-  Future<void> updateItem(History person);
+  Future<void> updateItem(History item);
+
+  @update
+  Future<void> updateItems(List<History> items);
 
   @delete
   Future<int> remove(History item);
+
+  @Query('SELECT MAX(ord) as ord FROM History where isFinished = 0')
+  Future<History> getMaxOrd();
+
+  /// 更新数据历史记录
+  @Query("update History set history = :history where id = :id")
+  Future<History> updateHistory(int id, int history);
+
+  insertItem(History item) async {
+    var max = await getMaxOrd();
+    max = max == null ? 0 : max;
+    item.ord = max.ord + 1;
+    await add(item);
+  }
 }
 
 class BeanList with ChangeNotifier {
@@ -84,7 +102,6 @@ class BeanList with ChangeNotifier {
     _list.remove(t);
     notifyListeners();
   }
-
 
   removeAll() {
     _list.clear();

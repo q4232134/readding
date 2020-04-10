@@ -81,6 +81,56 @@ _deleteFile({int id, File file}) async {
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
 
+  _play(History model) async {
+    var file = await _getFileById(model.id);
+    await audioPlayer.play(file.path, isLocal: true);
+    audioPlayer.onPlayerStateChanged.listen((s) async {
+      var flag;
+      switch (s) {
+        case AudioPlayerState.PLAYING:
+          flag = true;
+          break;
+        case AudioPlayerState.COMPLETED:
+          await _deleteFile(id: model.id);
+          list.remove(model);
+          flag = false;
+          if (list.getList().length > 0) await _createTTS();
+          break;
+        case AudioPlayerState.PAUSED:
+          flag = false;
+          break;
+        case AudioPlayerState.STOPPED:
+          flag = false;
+//            await (await getDao())
+//                .updateHistory(model.id, audioPlayer.duration.inSeconds);
+      }
+      setState(() => {isPlaying = flag});
+    }, onError: (msg) {
+      setState(() {
+        isPlaying = false;
+        Fluttertoast.showToast(msg: msg);
+      });
+    });
+  }
+
+  Future _createTTS() async {
+    var temp = await (await getDao()).getFirst();
+    final file = await _getFileById(temp.id);
+    print(file.path);
+    var flag = await file.exists();
+    print(flag);
+    if (!flag) {
+      flutterTts.setLanguage('zh-CN');
+      int result = await flutterTts.synthesizeToFile(
+          temp.content, pp.basename(file.path));
+      if (!(result == 1)) {
+        Fluttertoast.showToast(msg: "生成语音文件失败！");
+        return;
+      }
+    }
+    _play(temp);
+  }
+
   @override
   void deactivate() async {
     list.removeAll();
@@ -95,51 +145,6 @@ class _MyHomePageState extends State<MyHomePage> {
       fontSize: 12.0, // 文字大小
       color: Colors.white, // 文字颜色
     );
-
-    _play(History model) async {
-      var file = await _getFileById(model.id);
-      await audioPlayer.play(file.path, isLocal: true);
-      audioPlayer.onPlayerStateChanged.listen((s) {
-        var flag;
-        switch (s) {
-          case AudioPlayerState.PLAYING:
-            flag = true;
-            break;
-          case AudioPlayerState.COMPLETED:
-            _deleteFile(id: model.id);
-            list.remove(model);
-            flag = false;
-            break;
-          case AudioPlayerState.PAUSED:
-          case AudioPlayerState.STOPPED:
-            flag = false;
-        }
-        setState(() => {isPlaying = flag});
-      }, onError: (msg) {
-        setState(() {
-          isPlaying = false;
-          Fluttertoast.showToast(msg: msg);
-        });
-      });
-    }
-
-    Future _createTTS() async {
-      var temp = await (await getDao()).getFirst();
-      final file = await _getFileById(temp.id);
-      print(file.path);
-      var flag = await file.exists();
-      print(flag);
-      if (!flag) {
-        flutterTts.setLanguage('zh-CN');
-        int result = await flutterTts.synthesizeToFile(
-            temp.content, pp.basename(file.path));
-        if (!(result == 1)) {
-          Fluttertoast.showToast(msg: "生成语音文件失败！");
-          return;
-        }
-      }
-      _play(temp);
-    }
 
     Future _stopTTS() async {
       audioPlayer.pause();
@@ -175,57 +180,66 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       body: Center(
-          child: ListView.builder(
-              itemCount: list.getList().length,
-              scrollDirection: Axis.vertical,
-              itemBuilder: (context, index) {
-                final item = list.getList()[index];
-                return Consumer<BeanList>(builder: (context, list, child) {
-                  return Dismissible(
-                      key: Key(item.title),
-                      direction: DismissDirection.horizontal,
-                      onDismissed: (DismissDirection direction) async {
-                        if (direction == DismissDirection.startToEnd) {
-                          var temp = list.getList()[index];
-                          audioPlayer.stop();
-                          _deleteFile(id: temp.id);
-                          await dao.remove(temp);
-                          list.removeAt(index);
-                        } else {
-                          var temp = list.getList()[index];
-                          temp.isFinished = true;
-                          audioPlayer.stop();
-                          _deleteFile(id: temp.id);
-                          await dao.updateItem(temp);
-                          list.removeAt(index);
-                        }
-                      },
-                      child: Padding(
-                          padding: EdgeInsets.only(left: 8, right: 8, top: 2),
-                          child: Card(
-                              child: ListTile(
-                                  title: Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Text(
-                                          formatDate(
-                                              list.getList()[index].getDate(),
-                                              [yyyy, "-", mm, "-", dd]),
-                                          textAlign: TextAlign.left,
-                                          maxLines: 1,
-                                          style: TextStyle(fontSize: 12))),
-                                  subtitle: Text(list.getList()[index].content,
-                                      maxLines: 3),
-                                  isThreeLine: false,
-                                  dense: true,
-                                  enabled: true,
-                                  onTap: () {
-                                    _showAdditionDialog(
-                                        item: list.getList()[index]);
-                                  },
-                                  selected: false))));
-                });
-                // item 是否选中状态
-              })),
+          child: DragAndDropList<History>(
+        list.getList(),
+        itemBuilder: (BuildContext context, item) {
+          return Dismissible(
+              key: Key(item.title),
+              direction: DismissDirection.horizontal,
+              onDismissed: (DismissDirection direction) async {
+                if (direction == DismissDirection.startToEnd) {
+                  var temp = item;
+                  audioPlayer.stop();
+                  _deleteFile(id: temp.id);
+                  await dao.remove(temp);
+                  list.remove(item);
+                } else {
+                  var temp = item;
+                  temp.isFinished = true;
+                  audioPlayer.stop();
+                  _deleteFile(id: temp.id);
+                  await dao.updateItem(temp);
+                  list.remove(item);
+                }
+              },
+              child: Padding(
+                  padding: EdgeInsets.only(left: 8, right: 8, top: 2),
+                  child: Card(
+                      child: ListTile(
+                          title: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                  formatDate(
+                                      item.getDate(), [yyyy, "-", mm, "-", dd]),
+                                  textAlign: TextAlign.left,
+                                  maxLines: 1,
+                                  style: TextStyle(fontSize: 12))),
+                          subtitle: Text(item.content, maxLines: 3),
+                          isThreeLine: false,
+                          dense: true,
+                          enabled: true,
+                          onTap: () {
+                            _showAdditionDialog(item: item);
+                          },
+                          selected: false))));
+
+          // item 是否选中状态
+        },
+        onDragFinish: (before, after) async {
+          if (before != after) {
+            var temp = list.getList()[before];
+            list.remove(temp);
+            list.getList().insert(after, temp);
+            int i = 0;
+            list.getList().forEach((it) {
+              it.ord = i;
+              i++;
+            });
+            await (await getDao()).updateItems(list.getList());
+          }
+        },
+        canBeDraggedTo: (int oldIndex, int newIndex) => true,
+      )),
       floatingActionButton: GestureDetector(
           onLongPress: () async {
             var data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -242,8 +256,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   _addItem(var item) async {
     try {
-      dao.add(item);
-    } on SqfliteDatabaseException {
+      await dao.insertItem(item);
+    } on DatabaseException {
       Fluttertoast.showToast(msg: "条目已存在");
       return false;
     }

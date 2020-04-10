@@ -181,14 +181,33 @@ class _$HistoryDao extends HistoryDao {
   }
 
   @override
+  Future<History> getMaxOrd() async {
+    return _queryAdapter.query(
+        'SELECT MAX(ord) as ord FROM History where isFinished = 0',
+        mapper: _historyMapper);
+  }
+
+  @override
+  Future<History> updateHistory(int id, int history) async {
+    return _queryAdapter.query('update History set history = ? where id = ?',
+        arguments: <dynamic>[id, history], mapper: _historyMapper);
+  }
+
+  @override
   Future<void> add(History person) async {
     await _historyInsertionAdapter.insert(
         person, sqflite.ConflictAlgorithm.abort);
   }
 
   @override
-  Future<void> updateItem(History person) async {
-    await _historyUpdateAdapter.update(person, sqflite.ConflictAlgorithm.abort);
+  Future<void> updateItem(History item) async {
+    await _historyUpdateAdapter.update(item, sqflite.ConflictAlgorithm.abort);
+  }
+
+  @override
+  Future<void> updateItems(List<History> items) async {
+    await _historyUpdateAdapter.updateList(
+        items, sqflite.ConflictAlgorithm.abort);
   }
 
   @override
