@@ -19,7 +19,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
-    BeanList list = Provider.of<BeanList>(context);
+    list = Provider.of<BeanList>(context);
     return Center(
       child: ListView.builder(
           itemCount: list.getList().length,

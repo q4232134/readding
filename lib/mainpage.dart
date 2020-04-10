@@ -54,6 +54,8 @@ class mainpage extends StatelessWidget {
       ),
     );
   }
+
+
 }
 
 class MyHomePage extends StatefulWidget {
@@ -75,7 +77,7 @@ _getFileById(var id) async {
 _deleteFile({int id, File file}) async {
   File temp = file == null ? await _getFileById(id) : file;
   await temp.delete();
-  print('${pp.basename(file.path)}已删除');
+  print('已删除');
 }
 
 class _MyHomePageState extends State<MyHomePage> {
@@ -92,9 +94,12 @@ class _MyHomePageState extends State<MyHomePage> {
           break;
         case AudioPlayerState.COMPLETED:
           await _deleteFile(id: model.id);
+          model.isFinished = true;
+          await (await getDao()).updateItem(model);
           list.remove(model);
+          list.notifyListeners();
           flag = false;
-          if (list.getList().length > 0) await _createTTS();
+          _createTTS();
           break;
         case AudioPlayerState.PAUSED:
           flag = false;
@@ -115,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future _createTTS() async {
     var temp = await (await getDao()).getFirst();
+    if (temp == null) Fluttertoast.showToast(msg: "全部播放完成");
     final file = await _getFileById(temp.id);
     print(file.path);
     var flag = await file.exists();
@@ -138,9 +144,15 @@ class _MyHomePageState extends State<MyHomePage> {
     list.addAll(temp);
   }
 
+
+  @override
+  void dispose() async {
+    audioPlayer.stop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    BeanList list = Provider.of<BeanList>(context);
+    list = Provider.of<BeanList>(context);
     var style = TextStyle(
       fontSize: 12.0, // 文字大小
       color: Colors.white, // 文字颜色
