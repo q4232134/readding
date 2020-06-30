@@ -160,6 +160,12 @@ class _$HistoryDao extends HistoryDao {
   final DeletionAdapter<History> _historyDeletionAdapter;
 
   @override
+  Future<History> get(int id) async {
+    return _queryAdapter.query('SELECT * FROM History where id = ? limit 1',
+        arguments: <dynamic>[id], mapper: _historyMapper);
+  }
+
+  @override
   Future<List<History>> getAll() async {
     return _queryAdapter.queryList(
         'SELECT * FROM History where isFinished = 0 order by ord',

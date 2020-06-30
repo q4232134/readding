@@ -2,14 +2,13 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:audioplayer/audioplayer.dart';
 import 'package:date_format/date_format.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_list_drag_and_drop/drag_and_drop_list.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutterttsfull/flutterttsfull.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:readding/router.dart';
@@ -20,11 +19,9 @@ import 'package:path/path.dart' as pp;
 import 'database.dart';
 import 'model.dart';
 
-FlutterTts flutterTts;
-var isPlaying = false;
-AudioPlayer audioPlayer = AudioPlayer();
-
+Flutterttsfull tts;
 BeanList list;
+bool isPlaying = false;
 
 class mainpage extends StatelessWidget {
   SharedPreferences prefs;
@@ -40,22 +37,23 @@ class mainpage extends StatelessWidget {
     void _add(BeanList list) async {
       var temp = await (dao).getAll();
       list.addAll(temp);
-      flutterTts = FlutterTts();
+      tts = Flutterttsfull();
+//      tts.onNext = (tag) {
+//          dao.getFirst()
+//      }
     }
 
     return Scaffold(
       body: ChangeNotifierProvider(
         create: (context) {
-          list = BeanList();
-          _add(list);
-          return list;
+          var temps = BeanList();
+          _add(temps);
+          return temps;
         },
         child: MyHomePage(title: '语音阅读'),
       ),
     );
   }
-
-
 }
 
 class MyHomePage extends StatefulWidget {
@@ -66,75 +64,39 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-/// 根据id获取文件
-_getFileById(var id) async {
-  var name = '$id.wav';
-  final dir = await getExternalStorageDirectory();
-  return File(dir.path + '/' + name);
-}
-
-///根据id删除文件
-_deleteFile({int id, File file}) async {
-  File temp = file == null ? await _getFileById(id) : file;
-  await temp.delete();
-  print('已删除');
-}
-
 class _MyHomePageState extends State<MyHomePage> {
   var mDialog = Key('dialog');
 
-  _play(History model) async {
-    var file = await _getFileById(model.id);
-    await audioPlayer.play(file.path, isLocal: true);
-    audioPlayer.onPlayerStateChanged.listen((s) async {
-      var flag;
-      switch (s) {
-        case AudioPlayerState.PLAYING:
-          flag = true;
-          break;
-        case AudioPlayerState.COMPLETED:
-          await _deleteFile(id: model.id);
-          model.isFinished = true;
-          await (await getDao()).updateItem(model);
-          list.remove(model);
-          list.notifyListeners();
-          flag = false;
-          _createTTS();
-          break;
-        case AudioPlayerState.PAUSED:
-          flag = false;
-          break;
-        case AudioPlayerState.STOPPED:
-          flag = false;
-//            await (await getDao())
-//                .updateHistory(model.id, audioPlayer.duration.inSeconds);
-      }
-      setState(() => {isPlaying = flag});
-    }, onError: (msg) {
-      setState(() {
-        isPlaying = false;
-        Fluttertoast.showToast(msg: msg);
-      });
+  Future _play() async {
+    var temp = await (await getDao()).getFirst();
+    if (temp == null) Fluttertoast.showToast(msg: "全部播放完成");
+    await tts.proper("${temp.id}", temp.content, temp.history);
+    await tts.start();
+    var flag = await tts.isPlaying();
+    setState(() {
+      isPlaying = flag;
     });
   }
 
-  Future _createTTS() async {
-    var temp = await (await getDao()).getFirst();
-    if (temp == null) Fluttertoast.showToast(msg: "全部播放完成");
-    final file = await _getFileById(temp.id);
-    print(file.path);
-    var flag = await file.exists();
-    print(flag);
-    if (!flag) {
-      flutterTts.setLanguage('zh-CN');
-      int result = await flutterTts.synthesizeToFile(
-          temp.content, pp.basename(file.path));
-      if (!(result == 1)) {
-        Fluttertoast.showToast(msg: "生成语音文件失败！");
-        return;
-      }
-    }
-    _play(temp);
+  /// 初始化tts回调
+  initTTs() {
+    tts.onPlaying = (String tag, String content, int index) {
+      dao.updateHistory(int.parse(tag), index);
+      print('onPlaying');
+    };
+    tts.onFinish = (tag) async {
+      var temp = (await dao.get(int.parse(tag)));
+      temp.isFinished = true;
+      await dao.updateItem(temp);
+      print('onFinish');
+    };
+    tts.onPause = (tag) async {
+      var flag = await tts.isPlaying();
+      setState(() async {
+        isPlaying = flag;
+      });
+      print('onPause');
+    };
   }
 
   @override
@@ -142,12 +104,6 @@ class _MyHomePageState extends State<MyHomePage> {
     list.removeAll();
     var temp = await (dao).getAll();
     list.addAll(temp);
-  }
-
-
-  @override
-  void dispose() async {
-    audioPlayer.stop();
   }
 
   @override
@@ -158,9 +114,15 @@ class _MyHomePageState extends State<MyHomePage> {
       color: Colors.white, // 文字颜色
     );
 
-    Future _stopTTS() async {
-      audioPlayer.pause();
+    Future _stop() async {
+      await tts.stop();
+      var flag = await tts.isPlaying();
+      setState(() {
+        isPlaying = flag;
+      });
     }
+
+    initTTs();
 
     return Scaffold(
       appBar: AppBar(
@@ -183,9 +145,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Text(isPlaying ? '暂停' : '播放', style: style),
                 onPressed: () {
                   if (isPlaying) {
-                    _stopTTS();
+                    _stop();
                   } else {
-                    _createTTS();
+                    _play();
                   }
                 },
               ))
@@ -201,39 +163,40 @@ class _MyHomePageState extends State<MyHomePage> {
               onDismissed: (DismissDirection direction) async {
                 if (direction == DismissDirection.startToEnd) {
                   var temp = item;
-                  audioPlayer.stop();
-                  _deleteFile(id: temp.id);
+                  _stop();
                   await dao.remove(temp);
                   list.remove(item);
                 } else {
                   var temp = item;
                   temp.isFinished = true;
-                  audioPlayer.stop();
-                  _deleteFile(id: temp.id);
+                  tts.stop();
                   await dao.updateItem(temp);
                   list.remove(item);
                 }
               },
-              child: Padding(
-                  padding: EdgeInsets.only(left: 8, right: 8, top: 2),
-                  child: Card(
-                      child: ListTile(
-                          title: Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                  formatDate(
-                                      item.getDate(), [yyyy, "-", mm, "-", dd]),
-                                  textAlign: TextAlign.left,
-                                  maxLines: 1,
-                                  style: TextStyle(fontSize: 12))),
-                          subtitle: Text(item.content, maxLines: 3),
-                          isThreeLine: false,
-                          dense: true,
-                          enabled: true,
-                          onTap: () {
-                            _showAdditionDialog(item: item);
-                          },
-                          selected: false))));
+              child: Card(
+                  margin: EdgeInsets.only(left: 8, right: 8, top: 5),
+                  child: ListTile(
+                      title: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                              formatDate(
+                                  item.getDate(), [yyyy, "-", mm, "-", dd]),
+                              textAlign: TextAlign.left,
+                              maxLines: 1,
+                              style: TextStyle(fontSize: 12))),
+                      subtitle: Text(
+                        item.content,
+                        maxLines: 5,
+                        style: TextStyle(height: 1.1),
+                      ),
+                      isThreeLine: false,
+                      dense: true,
+                      enabled: true,
+                      onTap: () {
+                        _showAdditionDialog(item: item);
+                      },
+                      selected: false)));
 
           // item 是否选中状态
         },

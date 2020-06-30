@@ -43,8 +43,25 @@ class History {
   }
 }
 
+abstract class BaseDao<T> {
+  @insert
+  Future<void> add(T person);
+
+  @update
+  Future<void> updateItem(T item);
+
+  @update
+  Future<void> updateItems(List<T> items);
+
+  @delete
+  Future<int> remove(T item);
+}
+
 @dao
-abstract class HistoryDao {
+abstract class HistoryDao extends BaseDao<History> {
+  @Query('SELECT * FROM History where id = :id limit 1')
+  Future<History> get(int id);
+
   @Query('SELECT * FROM History where isFinished = 0 order by ord')
   Future<List<History>> getAll();
 
@@ -53,18 +70,6 @@ abstract class HistoryDao {
 
   @Query('SELECT * FROM History where isFinished = 0 order by ord limit 1')
   Future<History> getFirst();
-
-  @insert
-  Future<void> add(History person);
-
-  @update
-  Future<void> updateItem(History item);
-
-  @update
-  Future<void> updateItems(List<History> items);
-
-  @delete
-  Future<int> remove(History item);
 
   @Query('SELECT MAX(ord) as ord FROM History where isFinished = 0')
   Future<History> getMaxOrd();
@@ -75,8 +80,8 @@ abstract class HistoryDao {
 
   insertItem(History item) async {
     var max = await getMaxOrd();
-    max = max == null ? 0 : max;
-    item.ord = max.ord + 1;
+    int temp = max.ord == null ? 0 : max.ord;
+    item.ord = temp + 1;
     await add(item);
   }
 }
@@ -111,5 +116,10 @@ class BeanList with ChangeNotifier {
   removeAt(int index) {
     _list.removeAt(index);
     notifyListeners();
+  }
+
+  removeById(int id) {
+    History temp = _list.firstWhere((it) => it.id == id);
+    remove(temp);
   }
 }

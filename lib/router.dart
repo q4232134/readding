@@ -2,7 +2,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:readding/historypage.dart';
-import 'package:readding/ttsservice.dart';
 
 import 'database.dart';
 import 'mainpage.dart';
@@ -11,7 +10,7 @@ import 'model.dart';
 HistoryDao dao;
 
 void main() async {
-  AudioServiceBackground.run(() => ttsservice());
+  WidgetsFlutterBinding.ensureInitialized();
   dao = await getDao();
   runApp(router.initApp());
 }

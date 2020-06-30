@@ -57,8 +57,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                       style: TextStyle(fontSize: 12))),
                               subtitle: Text(list.getList()[index].content,
                                   style: TextStyle(
+                                      height:1.1,
                                       fontSize: 12, color: Colors.grey),
-                                  maxLines: 3),
+                                  maxLines: 5),
                               isThreeLine: false,
                               dense: true,
                               enabled: true,
