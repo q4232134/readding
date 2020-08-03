@@ -15,6 +15,8 @@ class History {
   String content = "";
   int ord = 0;
   bool isFinished = false;
+  @ignore
+  bool isPlaying = false;
   String createTime;
   int history = 0;
 
@@ -105,6 +107,11 @@ class BeanList with ChangeNotifier {
 
   remove(History t) {
     _list.remove(t);
+    notifyListeners();
+  }
+
+  removeByTag(String tag) {
+    _list.where((element) => element.id.toString() == tag);
     notifyListeners();
   }
 

@@ -19,11 +19,11 @@ import 'package:path/path.dart' as pp;
 import 'database.dart';
 import 'model.dart';
 
-Flutterttsfull tts;
+Flutterttsfull tts = Flutterttsfull();
 BeanList list;
 bool isPlaying = false;
 
-class mainpage extends StatelessWidget {
+class mainPage extends StatelessWidget {
   SharedPreferences prefs;
 
   _getPrefs() async {
@@ -64,7 +64,7 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with RouteAware {
   var mDialog = Key('dialog');
 
   Future _play() async {
@@ -72,6 +72,9 @@ class _MyHomePageState extends State<MyHomePage> {
     if (temp == null) Fluttertoast.showToast(msg: "全部播放完成");
     await tts.proper("${temp.id}", temp.content, temp.history);
     await tts.start();
+  }
+
+  syncButton() async {
     var flag = await tts.isPlaying();
     setState(() {
       isPlaying = flag;
@@ -88,27 +91,29 @@ class _MyHomePageState extends State<MyHomePage> {
       var temp = (await dao.get(int.parse(tag)));
       temp.isFinished = true;
       await dao.updateItem(temp);
+      list.removeByTag(tag);
+      await syncButton();
       print('onFinish');
     };
-    tts.onPause = (tag) async {
-      var flag = await tts.isPlaying();
-      setState(() async {
-        isPlaying = flag;
+    tts.onStart = (tag) async {
+      await syncButton();
+      print('onStart');
+      list.getList().forEach((element) {
+        element.isPlaying = (element.id == int.parse(tag)&&isPlaying);
       });
+      list.notifyListeners();
+    };
+    tts.onPause = (tag) async {
+
+      await syncButton();
       print('onPause');
     };
   }
 
   @override
-  void deactivate() async {
-    list.removeAll();
-    var temp = await (dao).getAll();
-    list.addAll(temp);
-  }
-
-  @override
   Widget build(BuildContext context) {
     list = Provider.of<BeanList>(context);
+
     var style = TextStyle(
       fontSize: 12.0, // 文字大小
       color: Colors.white, // 文字颜色
@@ -116,10 +121,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
     Future _stop() async {
       await tts.stop();
-      var flag = await tts.isPlaying();
-      setState(() {
-        isPlaying = flag;
-      });
     }
 
     initTTs();
@@ -154,66 +155,83 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       body: Center(
-          child: DragAndDropList<History>(
-        list.getList(),
-        itemBuilder: (BuildContext context, item) {
-          return Dismissible(
-              key: Key(item.title),
-              direction: DismissDirection.horizontal,
-              onDismissed: (DismissDirection direction) async {
-                if (direction == DismissDirection.startToEnd) {
-                  var temp = item;
-                  _stop();
-                  await dao.remove(temp);
-                  list.remove(item);
-                } else {
-                  var temp = item;
-                  temp.isFinished = true;
-                  tts.stop();
-                  await dao.updateItem(temp);
-                  list.remove(item);
-                }
-              },
-              child: Card(
-                  margin: EdgeInsets.only(left: 8, right: 8, top: 5),
-                  child: ListTile(
-                      title: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                              formatDate(
-                                  item.getDate(), [yyyy, "-", mm, "-", dd]),
-                              textAlign: TextAlign.left,
-                              maxLines: 1,
-                              style: TextStyle(fontSize: 12))),
-                      subtitle: Text(
-                        item.content,
-                        maxLines: 5,
-                        style: TextStyle(height: 1.1),
-                      ),
-                      isThreeLine: false,
-                      dense: true,
-                      enabled: true,
-                      onTap: () {
-                        _showAdditionDialog(item: item);
-                      },
-                      selected: false)));
+          child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: DragAndDropList<History>(
+          list.getList(),
+          itemBuilder: (BuildContext context, item) {
+            return Dismissible(
+                key: Key(item.title),
+                direction: DismissDirection.horizontal,
+                onDismissed: (DismissDirection direction) async {
+                  if (direction == DismissDirection.startToEnd) {
+                    var temp = item;
+                    _stop();
+                    await dao.remove(temp);
+                    list.remove(item);
+                  } else {
+                    var temp = item;
+                    temp.isFinished = true;
+                    tts.stop();
+                    await dao.updateItem(temp);
+                    list.remove(item);
+                  }
+                },
+                child: Card(
+                  child: Container(
+                    decoration: new BoxDecoration(
+                      //背景
+                      color: Colors.white,
+                      //设置四周圆角 角度
+                      borderRadius: BorderRadius.all(Radius.circular(5.0)),
+                      //设置四周边框
+                      border: new Border.all(
+                          width: 2,
+                          color: item.isPlaying
+                              ? Colors.lightGreen
+                              : Colors.transparent),
+                    ),
+                    child: ListTile(
+                        title: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                                formatDate(
+                                    item.getDate(), [yyyy, "-", mm, "-", dd]),
+                                textAlign: TextAlign.left,
+                                maxLines: 1,
+                                style: TextStyle(fontSize: 12))),
+                        subtitle: Text(
+                          item.content,
+                          maxLines: 5,
+                          style: TextStyle(height: 1.1),
+                        ),
+                        isThreeLine: false,
+                        dense: true,
+                        enabled: true,
+                        onTap: () {
+                          _showAdditionDialog(item: item);
+                        },
+                        selected: false),
+                  ),
+                ));
 
-          // item 是否选中状态
-        },
-        onDragFinish: (before, after) async {
-          if (before != after) {
-            var temp = list.getList()[before];
-            list.remove(temp);
-            list.getList().insert(after, temp);
-            int i = 0;
-            list.getList().forEach((it) {
-              it.ord = i;
-              i++;
-            });
-            await (await getDao()).updateItems(list.getList());
-          }
-        },
-        canBeDraggedTo: (int oldIndex, int newIndex) => true,
+            // item 是否选中状态
+          },
+          onDragFinish: (before, after) async {
+            if (before != after) {
+              var temp = list.getList()[before];
+              list.remove(temp);
+              list.getList().insert(after, temp);
+              int i = 0;
+              list.getList().forEach((it) {
+                it.ord = i;
+                i++;
+              });
+              await (await getDao()).updateItems(list.getList());
+            }
+          },
+          canBeDraggedTo: (int oldIndex, int newIndex) => true,
+        ),
       )),
       floatingActionButton: GestureDetector(
           onLongPress: () async {

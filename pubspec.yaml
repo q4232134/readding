@@ -28,7 +28,7 @@ dependencies:
   date_format: ^1.0.8
   path_provider: any
   flutter_list_drag_and_drop: ^0.1.6
-  flutterttsfull: ^0.0.3
+  flutterttsfull: ^0.0.4
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:readding/historypage.dart';
 
 import 'database.dart';
-import 'mainpage.dart';
+import 'mainPage.dart';
 import 'model.dart';
 
 HistoryDao dao;
@@ -29,7 +29,7 @@ class router {
 //初始化路由
   static initRoutes() {
     routes = {
-      '/': (context) => mainpage(),
+      '/': (context) => mainPage(),
       '/history': (context) => historypage(),
     };
     return routes;
